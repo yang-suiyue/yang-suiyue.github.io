@@ -1,0 +1,41 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - ai-prompts-network
+
+  ai-prompts-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-prompts-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/ai-prompts-hub
+    depends_on:
+      - mongodb
+    networks:
+      - ai-prompts-network
+
+  ai-prompts-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-prompts-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - ai-prompts-backend
+    networks:
+      - ai-prompts-network
+
+networks:
+  ai-prompts-network:
+    driver: bridge
