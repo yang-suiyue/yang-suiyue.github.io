@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI提示词共享平台 - 完整分类版</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-dark: #1d4ed8;
+            --primary-blue-light: #3b82f6;
+            --accent-purple: #9333ea;
+            --accent-purple-light: #a855f7;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #f3e8ff 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* 头部导航 */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            gap: 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+        }
+
+        .logo i {
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border: none;
+            background: var(--gray-50);
+            color: var(--gray-600);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--gray-100);
+            color: var(--primary-blue);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .create-btn {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-light));
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+        }
+
+        /* 主内容区 */
+        .main {
+            padding: 2.5rem 0;
+        }
+
+        /* 搜索栏 */
+        .search-section {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 14px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-btn {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            color: var(--white);
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+        }
+
+        /* 标签筛选 */
+        .tags-section {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .tags-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .tags-header h3 {
+            font-size: 1.25rem;
+            color: var(--gray-800);
+        }
+
+        .tag-groups {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .tag-group {
+            background: var(--gray-50);
+            border-radius: 16px;
+            padding: 1.25rem;
+        }
+
+        .tag-group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .tag-group-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            color: var(--white);
+        }
+
+        .tag-group-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+
+        .tag-group-subtitle {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            margin-left: auto;
+        }
+
+        .tag-group-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .tag {
+            padding: 0.5rem 1.25rem;
+            background: var(--white);
+            border: 2px solid var(--gray-200);
+            border-radius: 25px;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tag:hover {
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .tag.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            border-color: transparent;
+            color: var(--white);
+        }
+
+        /* 提示词卡片 */
+        .prompts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .prompt-card {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 1.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .prompt-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            flex: 1;
+        }
+
+        .card-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .card-badge {
+            padding: 0.25rem 0.75rem;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(147, 51, 234, 0.1));
+            color: var(--primary-blue);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .card-content {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .card-stats {
+            display: flex;
+            gap: 1rem;
+            color: var(--gray-600);
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 20px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-600);
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray-600);
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav {
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 0.5rem;
+            }
+
+            .prompts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <span>AI提示词共享平台</span>
+                </div>
+                <nav class="nav">
+                    <button class="nav-btn active" data-view="all">
+                        <i class="fas fa-lightbulb"></i> 全部
+                    </button>
+                    <button class="nav-btn" data-view="hot">
+                        <i class="fas fa-fire"></i> 热门
+                    </button>
+                    <button class="nav-btn create-btn" onclick="openCreateModal()">
+                        <i class="fas fa-plus"></i> 创建
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- 搜索区域 -->
+            <section class="search-section">
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchInput" placeholder="搜索提示词、关键词或标签...">
+                    <button class="search-btn" onclick="searchPrompts()">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </section>
+
+            <!-- 标签筛选 -->
+            <section class="tags-section">
+                <div class="tags-header">
+                    <h3><i class="fas fa-tags"></i> 分类浏览</h3>
+                </div>
+                <div class="tag-groups">
+                    <!-- 文本创作 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-pen-fancy"></i></div>
+                            <span class="tag-group-title">文本创作</span>
+                            <span class="tag-group-subtitle">文案撰写 | 内容创作 | 文本润色</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="文案撰写">文案撰写</span>
+                            <span class="tag" data-tag="内容创作">内容创作</span>
+                            <span class="tag" data-tag="文本润色">文本润色</span>
+                            <span class="tag" data-tag="短视频脚本">短视频脚本</span>
+                            <span class="tag" data-tag="演讲稿">演讲稿</span>
+                            <span class="tag" data-tag="推文">推文</span>
+                        </div>
+                    </div>
+
+                    <!-- 职场办公 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-briefcase"></i></div>
+                            <span class="tag-group-title">职场办公</span>
+                            <span class="tag-group-subtitle">文档处理 | 效率工具 | 沟通辅助</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="文档处理">文档处理</span>
+                            <span class="tag" data-tag="效率工具">效率工具</span>
+                            <span class="tag" data-tag="沟通辅助">沟通辅助</span>
+                            <span class="tag" data-tag="会议纪要">会议纪要</span>
+                            <span class="tag" data-tag="工作总结">工作总结</span>
+                            <span class="tag" data-tag="PPT">PPT制作</span>
+                        </div>
+                    </div>
+
+                    <!-- 学习教育 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-graduation-cap"></i></div>
+                            <span class="tag-group-title">学习教育</span>
+                            <span class="tag-group-subtitle">知识学习 | 作业辅助 | 备考规划</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="知识学习">知识学习</span>
+                            <span class="tag" data-tag="作业辅助">作业辅助</span>
+                            <span class="tag" data-tag="备考规划">备考规划</span>
+                            <span class="tag" data-tag="论文">论文</span>
+                            <span class="tag" data-tag="翻译">翻译</span>
+                            <span class="tag" data-tag="思维导图">思维导图</span>
+                        </div>
+                    </div>
+
+                    <!-- 专业技术 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-code"></i></div>
+                            <span class="tag-group-title">专业技术</span>
+                            <span class="tag-group-subtitle">代码相关 | 数据分析 | 设计辅助</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="代码相关">代码相关</span>
+                            <span class="tag" data-tag="数据分析">数据分析</span>
+                            <span class="tag" data-tag="设计辅助">设计辅助</span>
+                            <span class="tag" data-tag="编程">编程</span>
+                            <span class="tag" data-tag="调试">调试</span>
+                            <span class="tag" data-tag="图表">图表制作</span>
+                        </div>
+                    </div>
+
+                    <!-- 生活服务 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-home"></i></div>
+                            <span class="tag-group-title">生活服务</span>
+                            <span class="tag-group-subtitle">日常规划 | 问题解决 | 兴趣辅助</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="日常规划">日常规划</span>
+                            <span class="tag" data-tag="问题解决">问题解决</span>
+                            <span class="tag" data-tag="兴趣辅助">兴趣辅助</span>
+                            <span class="tag" data-tag="旅行">旅行攻略</span>
+                            <span class="tag" data-tag="菜谱">菜谱</span>
+                            <span class="tag" data-tag="健身">健身计划</span>
+                        </div>
+                    </div>
+
+                    <!-- 垂直专业 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-stethoscope"></i></div>
+                            <span class="tag-group-title">垂直专业</span>
+                            <span class="tag-group-subtitle">医疗健康 | 法律合规 | 商业运营 | AI产品</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="医疗健康">医疗健康</span>
+                            <span class="tag" data-tag="法律合规">法律合规</span>
+                            <span class="tag" data-tag="商业运营">商业运营</span>
+                            <span class="tag" data-tag="AI产品">AI产品</span>
+                        </div>
+                    </div>
+
+                    <!-- 创意设计 -->
+                    <div class="tag-group">
+                        <div class="tag-group-header">
+                            <div class="tag-group-icon"><i class="fas fa-palette"></i></div>
+                            <span class="tag-group-title">创意设计</span>
+                            <span class="tag-group-subtitle">图文生成 | 视频辅助 | 创意发散</span>
+                        </div>
+                        <div class="tag-group-tags">
+                            <span class="tag" data-tag="图文生成">图文生成</span>
+                            <span class="tag" data-tag="视频辅助">视频辅助</span>
+                            <span class="tag" data-tag="创意发散">创意发散</span>
+                            <span class="tag" data-tag="图片">图片生成</span>
+                            <span class="tag" data-tag="视频">视频脚本</span>
+                            <span class="tag" data-tag="创意">创意</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 提示词列表 -->
+            <section class="prompts-grid" id="promptsGrid">
+                <!-- 提示词卡片将通过JS动态生成 -->
+            </section>
+        </div>
+    </main>
+
+    <!-- 创建提示词模态框 -->
+    <div class="modal" id="promptModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-pen-fancy"></i> 创建提示词</h2>
+                <button class="close-modal" onclick="closeModal('promptModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">标题</label>
+                    <input type="text" class="form-input" id="promptTitle" placeholder="输入提示词标题">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">AI模型</label>
+                    <select class="form-select" id="promptAI">
+                        <option value="chatgpt">ChatGPT (GPT-4o/3.5)</option>
+                        <option value="claude">Claude 3</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="wenxin">文心一言</option>
+                        <option value="tongyi">通义千问</option>
+                        <option value="doubao">豆包</option>
+                        <option value="midjourney">MidJourney</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">分类标签</label>
+                    <select class="form-select" id="promptCategory">
+                        <option value="文案撰写">文案撰写</option>
+                        <option value="内容创作">内容创作</option>
+                        <option value="文档处理">文档处理</option>
+                        <option value="效率工具">效率工具</option>
+                        <option value="知识学习">知识学习</option>
+                        <option value="代码相关">代码相关</option>
+                        <option value="数据分析">数据分析</option>
+                        <option value="设计辅助">设计辅助</option>
+                        <option value="日常规划">日常规划</option>
+                        <option value="医疗健康">医疗健康</option>
+                        <option value="法律合规">法律合规</option>
+                        <option value="商业运营">商业运营</option>
+                        <option value="图文生成">图文生成</option>
+                        <option value="视频辅助">视频辅助</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">提示词内容</label>
+                    <textarea class="form-textarea" id="promptContent" placeholder="输入提示词内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">使用说明</label>
+                    <textarea class="form-textarea" id="promptUsage" placeholder="输入使用说明(可选)..." style="min-height: 100px;"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('promptModal')">取消</button>
+                    <button class="btn btn-primary" onclick="createPrompt()">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API配置
+        const API_BASE_URL = '/api';
+        let currentTag = 'all';
+        let currentView = 'all';
+        let prompts = [];
+
+        // Socket.IO连接
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('✅ WebSocket连接成功');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('❌ WebSocket连接断开');
+        });
+
+        // 监听实时更新
+        socket.on('prompt:created', (prompt) => {
+            prompts.unshift(prompt);
+            renderPrompts();
+            showNotification('新提示词已添加');
+        });
+
+        socket.on('prompt:updated', (prompt) => {
+            const index = prompts.findIndex(p => p.id === prompt.id);
+            if (index !== -1) {
+                prompts[index] = prompt;
+                renderPrompts();
+                showNotification('提示词已更新');
+            }
+        });
+
+        socket.on('prompt:deleted', (id) => {
+            prompts = prompts.filter(p => p.id !== id);
+            renderPrompts();
+            showNotification('提示词已删除');
+        });
+
+        // 监听点赞更新
+        socket.on('like:added', (data) => {
+            const prompt = prompts.find(p => p.id === data.promptId);
+            if (prompt) {
+                prompt.likes = data.likes;
+                renderPrompts();
+            }
+        });
+
+        socket.on('like:removed', (data) => {
+            const prompt = prompts.find(p => p.id === data.promptId);
+            if (prompt) {
+                prompt.likes = data.likes;
+                renderPrompts();
+            }
+        });
+
+        // 存储用户的点赞状态
+        let userLikes = {};
+        
+        // 获取或生成用户ID（使用localStorage持久化）
+        function getUserId() {
+            let userId = localStorage.getItem('user_id');
+            if (!userId) {
+                userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('user_id', userId);
+            }
+            return userId;
+        }
+        
+        // 从localStorage加载点赞状态
+        function loadUserLikes() {
+            const saved = localStorage.getItem('user_likes');
+            if (saved) {
+                userLikes = JSON.parse(saved);
+            }
+        }
+        
+        // 保存点赞状态到localStorage
+        function saveUserLikes() {
+            localStorage.setItem('user_likes', JSON.stringify(userLikes));
+        }
+
+        // 加载提示词
+        async function loadPrompts() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/prompts`);
+                prompts = await response.json();
+                renderPrompts();
+            } catch (error) {
+                console.error('加载失败:', error);
+            }
+        }
+
+        // 渲染提示词
+        function renderPrompts() {
+            const grid = document.getElementById('promptsGrid');
+            let filteredPrompts = prompts;
+
+            // 标签筛选
+            if (currentTag !== 'all') {
+                filteredPrompts = filteredPrompts.filter(p =>
+                    p.tags && p.tags.some(t => t.includes(currentTag))
+                );
+            }
+
+            // 视图筛选
+            if (currentView === 'hot') {
+                filteredPrompts = filteredPrompts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+            } else {
+                filteredPrompts = filteredPrompts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            }
+
+            grid.innerHTML = filteredPrompts.map(prompt => {
+                const isLiked = userLikes[prompt.id];
+                return `
+                <div class="prompt-card" onclick="showPromptDetail('${prompt.id}')">
+                    <div class="card-header">
+                        <h3 class="card-title">${escapeHtml(prompt.title)}</h3>
+                        <div class="card-badges">
+                            <span class="card-badge">${prompt.aiTool}</span>
+                        </div>
+                    </div>
+                    <div class="card-content">${escapeHtml(prompt.content)}</div>
+                    <div class="card-footer">
+                        <div class="card-stats">
+                            <span class="stat"><i class="fas fa-heart"></i> ${prompt.likes || 0}</span>
+                            <span class="stat"><i class="fas fa-user"></i> ${escapeHtml(prompt.author)}</span>
+                        </div>
+                        <button class="btn ${isLiked ? 'btn-secondary' : 'btn-primary'}" onclick="event.stopPropagation(); toggleLike('${prompt.id}')">
+                            <i class="fas fa-${isLiked ? 'thumbs-down' : 'thumbs-up'}"></i> ${isLiked ? '取消' : '点赞'}
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // 点赞/取消点赞
+        async function toggleLike(id) {
+            try {
+                const userId = getUserId();
+                const isLiked = userLikes[id];
+                const response = await fetch(`${API_BASE_URL}/prompts/${id}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, action: isLiked ? 'unlike' : 'like' })
+                });
+                const data = await response.json();
+                const prompt = prompts.find(p => p.id === id);
+                if (prompt) {
+                    prompt.likes = data.likes;
+                    userLikes[id] = !isLiked;
+                    saveUserLikes();
+                    renderPrompts();
+                    showNotification(data.liked ? '点赞成功！' : '已取消点赞');
+                }
+            } catch (error) {
+                console.error('点赞操作失败:', error);
+                showNotification('操作失败', 'error');
+            }
+        }
+
+        // 创建提示词
+        async function createPrompt() {
+            const title = document.getElementById('promptTitle').value;
+            const aiTool = document.getElementById('promptAI').value;
+            const category = document.getElementById('promptCategory').value;
+            const content = document.getElementById('promptContent').value;
+            const usage = document.getElementById('promptUsage').value;
+
+            if (!title || !content) {
+                showNotification('请填写标题和内容', 'error');
+                return;
+            }
+
+            const id = Date.now().toString();
+            const promptData = {
+                id,
+                title,
+                aiTool,
+                content,
+                usage,
+                tags: [category],
+                author: '用户',
+                likes: 0
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/prompts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(promptData)
+                });
+
+                if (response.ok) {
+                    closeModal('promptModal');
+                    showNotification('创建成功');
+                    // 清空表单
+                    document.getElementById('promptTitle').value = '';
+                    document.getElementById('promptContent').value = '';
+                    document.getElementById('promptUsage').value = '';
+                    // 重新加载提示词列表
+                    await loadPrompts();
+                } else {
+                    const errorData = await response.json();
+                    showNotification(errorData.error || '创建失败', 'error');
+                }
+            } catch (error) {
+                console.error('创建失败:', error);
+                showNotification('创建失败: ' + error.message, 'error');
+            }
+        }
+
+        // 搜索
+        function searchPrompts() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            if (keyword) {
+                prompts = prompts.filter(p =>
+                    p.title.toLowerCase().includes(keyword) ||
+                    p.content.toLowerCase().includes(keyword) ||
+                    (p.tags && p.tags.some(t => t.toLowerCase().includes(keyword)))
+                );
+            } else {
+                loadPrompts();
+            }
+            renderPrompts();
+        }
+
+        // 标签点击
+        document.querySelectorAll('.tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+                tag.classList.add('active');
+                currentTag = tag.dataset.tag;
+                loadPrompts();
+            });
+        });
+
+        // 视图切换
+        document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentView = btn.dataset.view;
+                loadPrompts();
+            });
+        });
+
+        // 模态框操作
+        function openCreateModal() {
+            document.getElementById('promptModal').classList.add('show');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        // 通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 2rem;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+                color: white;
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                animation: slideIn 0.3s ease;
+                z-index: 10000;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 搜索框回车
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchPrompts();
+        });
+
+        // 初始化
+        loadUserLikes();
+        loadPrompts();
+    </script>
+</body>
+</html>
